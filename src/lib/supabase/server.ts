@@ -1,14 +1,21 @@
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
+import type { SupabaseClient } from "@supabase/supabase-js"
 
-import type { Database } from "@/lib/supabase/types"
 import {
   getSupabaseAnonKey,
   getSupabaseUrl,
   isSupabaseConfigured,
 } from "@/lib/supabase/env"
+import type { Database } from "@/lib/supabase/types"
 
-export async function createClient() {
+export type ServerSupabaseClient = SupabaseClient<Database>
+
+/**
+ * Server Supabase client for Server Components, Route Handlers, and Server Actions.
+ * Reads/writes auth cookies via next/headers.
+ */
+export async function createClient(): Promise<ServerSupabaseClient> {
   if (!isSupabaseConfigured()) {
     throw new Error("SUPABASE_NOT_CONFIGURED")
   }
@@ -29,7 +36,7 @@ export async function createClient() {
               cookieStore.set(name, value, options)
             )
           } catch {
-            // setAll called from a Server Component — safe to ignore
+            // Called from a Server Component — cookie writes are ignored safely.
           }
         },
       },
@@ -37,7 +44,7 @@ export async function createClient() {
   )
 }
 
-export async function createClientIfConfigured() {
+export async function createClientIfConfigured(): Promise<ServerSupabaseClient | null> {
   if (!isSupabaseConfigured()) return null
   return createClient()
 }

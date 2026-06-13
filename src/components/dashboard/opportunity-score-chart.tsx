@@ -29,46 +29,56 @@ type OpportunityScoreChartProps = {
 }
 
 export function OpportunityScoreChart({ data }: OpportunityScoreChartProps) {
+  const hasScores = data.some((point) => point.score > 0)
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Opportunity Score Trend</CardTitle>
         <CardDescription>
-          Average opportunity score across all tracked markets
+          Average opportunity score by month from live data
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig} className="aspect-[4/3] h-[280px] w-full">
-          <AreaChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-            <defs>
-              <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-score)" stopOpacity={0.35} />
-                <stop offset="100%" stopColor="var(--color-score)" stopOpacity={0.02} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis
-              dataKey="month"
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-            />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              domain={[50, 100]}
-            />
-            <ChartTooltip content={<ChartTooltipContent />} />
-            <Area
-              type="monotone"
-              dataKey="score"
-              stroke="var(--color-score)"
-              strokeWidth={2}
-              fill="url(#scoreGradient)"
-            />
-          </AreaChart>
-        </ChartContainer>
+        {hasScores ? (
+          <ChartContainer config={chartConfig} className="aspect-[4/3] h-[280px] w-full">
+            <AreaChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+              <defs>
+                <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--color-score)" stopOpacity={0.35} />
+                  <stop offset="100%" stopColor="var(--color-score)" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} strokeDasharray="3 3" />
+              <XAxis
+                dataKey="month"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                domain={[0, 100]}
+              />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Area
+                type="monotone"
+                dataKey="score"
+                stroke="var(--color-score)"
+                strokeWidth={2}
+                fill="url(#scoreGradient)"
+              />
+            </AreaChart>
+          </ChartContainer>
+        ) : (
+          <div className="flex h-[280px] items-center justify-center rounded-lg border border-dashed">
+            <p className="text-sm text-muted-foreground">
+              No opportunity scores recorded yet.
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

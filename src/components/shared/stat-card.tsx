@@ -43,7 +43,7 @@ export function StatCard({
   value,
   change,
   icon,
-  trend = "up",
+  trend,
   className,
 }: StatCardProps) {
   const Icon: LucideIcon = iconMap[icon]
@@ -65,12 +65,13 @@ export function StatCard({
             variant="secondary"
             className={cn(
               "font-normal",
-              trend === "up" && "text-emerald-600 dark:text-emerald-400"
+              trend === "up" && "text-emerald-600 dark:text-emerald-400",
+              trend === "down" && "text-red-600 dark:text-red-400"
             )}
           >
             {change}
           </Badge>
-          <span className="text-xs text-muted-foreground">vs last period</span>
+          <span className="text-xs text-muted-foreground">last 30 days</span>
         </div>
       </CardContent>
     </Card>

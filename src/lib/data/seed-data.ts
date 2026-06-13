@@ -15,7 +15,9 @@ type SeedArticle = {
   published_date: string
   summary: string | null
 }
-type SeedContentGap = Omit<ContentGap, "id" | "created_at">
+type SeedContentGap = Omit<ContentGap, "id" | "created_at" | "suggested_opportunity"> & {
+  suggested_opportunity?: string | null
+}
 
 export const seedCompetitors: SeedCompetitor[] = [
   {

@@ -1,28 +1,15 @@
 import type { Metadata } from "next"
-import { format, parseISO } from "date-fns"
+import { Suspense } from "react"
 
+import { CompetitorManagement } from "@/components/competitors/competitor-management"
 import { PageHeader } from "@/components/shared/page-header"
-import { ScoreBadge } from "@/components/shared/status-badge"
 import { StatCard } from "@/components/shared/stat-card"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  getCompetitorStats,
-  getCompetitorTrackerRows,
-} from "@/lib/supabase/queries"
+  COMPETITOR_PAGE_SIZE,
+  getCompetitorsPaginated,
+} from "@/lib/supabase/queries/competitors-management"
+import { getCompetitorStats } from "@/lib/supabase/queries"
 
 export const metadata: Metadata = {
   title: "Competitor Intelligence",
@@ -30,69 +17,63 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic"
 
-export default async function CompetitorsPage() {
-  const [stats, trackerRows] = await Promise.all([
-    getCompetitorStats(),
-    getCompetitorTrackerRows(),
-  ])
+type PageProps = {
+  searchParams: Promise<{ q?: string; page?: string }>
+}
+
+async function CompetitorListSection({
+  searchQuery,
+  page,
+}: {
+  searchQuery: string
+  page: number
+}) {
+  const data = await getCompetitorsPaginated({
+    search: searchQuery,
+    page,
+    pageSize: COMPETITOR_PAGE_SIZE,
+  })
+
+  return (
+    <CompetitorManagement {...data} searchQuery={searchQuery} />
+  )
+}
+
+function CompetitorListFallback() {
+  return (
+    <div className="space-y-4 rounded-xl border p-6">
+      <Skeleton className="h-8 w-48" />
+      <Skeleton className="h-10 w-full max-w-md" />
+      <Skeleton className="h-64 w-full" />
+    </div>
+  )
+}
+
+export default async function CompetitorsPage({ searchParams }: PageProps) {
+  const params = await searchParams
+  const searchQuery = params.q?.trim() ?? ""
+  const page = Math.max(1, Number(params.page) || 1)
+
+  const stats = await getCompetitorStats()
 
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
         title="Competitor Intelligence"
-        description="Track competitor content, identify gaps, and stay ahead of market narratives."
+        description="Manage competitors, track articles, and identify content gaps."
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {stats.map((stat) => (
-          <StatCard key={stat.title} {...stat} />
-        ))}
-      </div>
+      {stats.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {stats.map((stat) => (
+            <StatCard key={stat.title} {...stat} />
+          ))}
+        </div>
+      )}
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle>Competitor Content Tracker</CardTitle>
-          <CardDescription>
-            Latest published topics and content gap scores
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {trackerRows.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              No competitor activity to display at this time.
-            </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Competitor</TableHead>
-                  <TableHead>Latest Topic</TableHead>
-                  <TableHead>Publish Date</TableHead>
-                  <TableHead className="text-right">Gap Score</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {trackerRows.map((row) => (
-                  <TableRow key={row.competitorId}>
-                    <TableCell className="font-medium">
-                      {row.competitorName}
-                    </TableCell>
-                    <TableCell className="max-w-xs truncate text-muted-foreground">
-                      {row.latestTopic}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {format(parseISO(row.publishDate), "MMM d, yyyy")}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <ScoreBadge score={row.gapScore} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      <Suspense fallback={<CompetitorListFallback />}>
+        <CompetitorListSection searchQuery={searchQuery} page={page} />
+      </Suspense>
     </div>
   )
 }

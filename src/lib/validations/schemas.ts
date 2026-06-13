@@ -6,6 +6,24 @@ export const competitorSchema = z.object({
   industry: z.string().nullable().optional(),
 })
 
+export const competitorFormSchema = z.object({
+  name: z.string().trim().min(1, "Name is required"),
+  website: z
+    .string()
+    .trim()
+    .transform((value) => (value.length === 0 ? null : value))
+    .refine(
+      (value) => value === null || z.string().url().safeParse(value).success,
+      "Enter a valid URL (https://...)"
+    ),
+  industry: z
+    .string()
+    .trim()
+    .transform((value) => (value.length === 0 ? null : value)),
+})
+
+export type CompetitorFormValues = z.infer<typeof competitorFormSchema>
+
 export const competitorUpdateSchema = competitorSchema.partial()
 
 export const competitorArticleSchema = z.object({
@@ -22,6 +40,7 @@ export const contentGapSchema = z.object({
   topic: z.string().min(1),
   importance_score: z.number().int().min(0).max(100),
   competitor_count: z.number().int().min(0).optional(),
+  suggested_opportunity: z.string().nullable().optional(),
   status: z
     .enum(["open", "in_progress", "monitoring", "resolved", "dismissed"])
     .optional(),
