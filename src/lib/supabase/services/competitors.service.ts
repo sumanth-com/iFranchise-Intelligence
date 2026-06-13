@@ -187,49 +187,102 @@ export function createCompetitorsService(client: SupabaseDbClient) {
       page?: number
       pageSize?: number
     }): Promise<PaginatedCompetitors> {
-      const page = Math.max(1, options.page ?? 1)
       const pageSize = Math.min(50, Math.max(1, options.pageSize ?? 10))
-      const from = (page - 1) * pageSize
-      const to = from + pageSize - 1
-
-      let query = client
-        .from("competitors")
-        .select("*, competitor_articles(count)", { count: "exact" })
-        .order("created_at", { ascending: false })
-        .range(from, to)
-
       const search = options.search?.trim()
+
+      let countQuery = client
+        .from("competitors")
+        .select("*", { count: "exact", head: true })
+
       if (search) {
         const term = `%${search}%`
-        query = query.or(
+        countQuery = countQuery.or(
           `name.ilike.${term},website.ilike.${term},industry.ilike.${term}`
         )
       }
 
-      const { data, error, count } = await query
+      const { count: totalCount, error: countError } = await countQuery
+
+      if (countError) {
+        throw new SupabaseQueryError(
+          `Failed to count competitors: ${countError.message}`,
+          countError
+        )
+      }
+
+      const total = totalCount ?? 0
+      const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1)
+      const page = Math.min(Math.max(1, options.page ?? 1), totalPages)
+
+      if (total === 0) {
+        return { rows: [], total: 0, page: 1, pageSize, totalPages: 1 }
+      }
+
+      const from = (page - 1) * pageSize
+      const to = Math.min(from + pageSize - 1, total - 1)
+
+      if (from >= total) {
+        return { rows: [], total, page: totalPages, pageSize, totalPages }
+      }
+
+      let dataQuery = client.from("competitors").select("*")
+
+      if (search) {
+        const term = `%${search}%`
+        dataQuery = dataQuery.or(
+          `name.ilike.${term},website.ilike.${term},industry.ilike.${term}`
+        )
+      }
+
+      const { data, error } = await dataQuery
+        .order("created_at", { ascending: false })
+        .range(from, to)
 
       if (error) {
+        const isRangeError =
+          error.code === "PGRST103" ||
+          error.message.toLowerCase().includes("range not satisfiable")
+
+        if (isRangeError) {
+          return { rows: [], total, page: totalPages, pageSize, totalPages }
+        }
+
         throw new SupabaseQueryError(
           `Failed to fetch competitors: ${error.message}`,
           error
         )
       }
 
-      type RowWithCount = Competitor & {
-        competitor_articles: { count: number }[]
+      const competitors = (data ?? []) as Competitor[]
+      const competitorIds = competitors.map((row) => row.id)
+
+      const articleCounts = new Map<string, number>()
+
+      if (competitorIds.length > 0) {
+        const { data: articles, error: articlesError } = await client
+          .from("competitor_articles")
+          .select("competitor_id")
+          .in("competitor_id", competitorIds)
+
+        if (articlesError) {
+          throw new SupabaseQueryError(
+            `Failed to count competitor articles: ${articlesError.message}`,
+            articlesError
+          )
+        }
+
+        for (const article of articles ?? []) {
+          articleCounts.set(
+            article.competitor_id,
+            (articleCounts.get(article.competitor_id) ?? 0) + 1
+          )
+        }
       }
 
-      const rows = ((data ?? []) as RowWithCount[]).map((row) => ({
-        id: row.id,
-        name: row.name,
-        website: row.website,
-        industry: row.industry,
-        created_at: row.created_at,
-        articles_count: row.competitor_articles?.[0]?.count ?? 0,
+      const rows = competitors.map((row) => ({
+        ...row,
+        articles_count: articleCounts.get(row.id) ?? 0,
       }))
-
-      const total = count ?? 0
-      const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
       return { rows, total, page, pageSize, totalPages }
     },

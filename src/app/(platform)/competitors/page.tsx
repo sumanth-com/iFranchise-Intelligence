@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { redirect } from "next/navigation"
 import { Suspense } from "react"
 
 import { CompetitorManagement } from "@/components/competitors/competitor-management"
@@ -34,9 +35,13 @@ async function CompetitorListSection({
     pageSize: COMPETITOR_PAGE_SIZE,
   })
 
-  return (
-    <CompetitorManagement {...data} searchQuery={searchQuery} />
-  )
+  if (page > 1 && data.rows.length === 0 && data.total > 0) {
+    const params = new URLSearchParams()
+    if (searchQuery) params.set("q", searchQuery)
+    redirect(`/competitors${params.toString() ? `?${params}` : ""}`)
+  }
+
+  return <CompetitorManagement {...data} searchQuery={searchQuery} />
 }
 
 function CompetitorListFallback() {
